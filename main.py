@@ -157,7 +157,6 @@ def deal_group_msg(msg):
 #好友消息
 @itchat.msg_register([TEXT, PICTURE, RECORDING,SHARING, ATTACHMENT, VIDEO], isFriendChat=True , isGroupChat=False)
 def send_msg_test(msg):
-    print(msg)
     msg_dict = deal_user_msg(msg)
     if msg_dict['msg_content'] == '测试':
         itchat.send_msg('收到测试数据', toUserName=msg_dict['msg_from_user'])
