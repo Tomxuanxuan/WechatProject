@@ -17,6 +17,6 @@
 
 2.更改 config.py 文件中的数据库信息，需要统计的群聊名称 groupnames
 
-3.创建数据表，运行 createtable.py 文件
+3.创建数据表，运行 create_table.py 文件
 
 4.运行主文件 main.py，扫码登录

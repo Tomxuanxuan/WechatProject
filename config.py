@@ -9,7 +9,7 @@ def db_conn():
     mydb = pymysql.connect(
         host="127.0.0.1",       # 数据库主机地址
         user="root",    # 数据库用户名
-        passwd="ake123456",   # 数据库密码
+        passwd="xxxxxx",   # 数据库密码
         database="wxrobot",  # 数据库
     )
     return mydb
