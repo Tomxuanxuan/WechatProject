@@ -54,7 +54,7 @@ class wxrobot:
             content = self.msg_content[:2]
             qunname = str(self.msg_group_name.encode('utf-8'))
             val = (
-            self.msg_type, self.msg_time, content, self.msg_sender, self.msg_receiver, self.msg_sender_name, self.msg_receiver_name, self.is_at,
+            self.msg_id, self.msg_type, self.msg_time, content, self.msg_sender, self.msg_receiver, self.msg_sender_name, self.msg_receiver_name, self.is_at,
             self.is_group, self.msg_group, qunname)
             self.mycursor.execute(sql, val)
             mydb.commit()

@@ -37,7 +37,15 @@ def deal_user_msg(msg):
         try:
             msg_from_user_name = msg['User']['NickName'] if u'NickName' in msg['User'] else msg['User']['UserName'] #来源用户昵称
         except:
-            msg_from_user_name = itchat.search_friends(userName=msg['FromUserName'])['NickName']
+            try:
+                msg_from_user = itchat.search_friends(userName=msg['FromUserName'])
+                if msg_from_user['RemarkName']:
+                    msg_from_user_name = msg_from_user['RemarkName']
+                else:
+                    msg_from_user_name = msg_from_user['NickName']
+
+            except:
+                msg_from_user_name = '未知用户'
     msg_content = ''
     msg_time_rec = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     msg_type = msg['Type']  #消息类型
