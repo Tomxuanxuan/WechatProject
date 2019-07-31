@@ -95,7 +95,10 @@ def deal_user_msg(msg):
 def deal_group_msg(msg):
     global face_bug
     msg_id = msg['MsgId']   #消息 id
-    msg_from_user = msg['ActualUserName']     #来源用户 id  FromUserName的id是登录用户的id
+    try:
+        msg_from_user = msg['ActualUserName']     #来源用户 id  FromUserName的id是登录用户的id
+    except:
+        msg_from_user = msg['FromUserName']
 
     if msg_from_user == loadUser['UserName']:   #是登录用户自己发的消息
         msg_from_user_name = loadUser['NickName']
@@ -105,7 +108,10 @@ def deal_group_msg(msg):
             msg_from_user_name = msg['User']['NickName'] if u'NickName' in msg['User'] else msg['User'][
                 'UserName']  # 来源用户昵称
         except:
-            msg_from_user_name = msg['ActualNickName']  # 获取来源用户昵称
+            try:
+                msg_from_user_name = msg['ActualNickName']  # 获取来源用户昵称
+            except:
+                msg_from_user_name = '未识别用户昵称'
 
         try:
             msg_group = msg['User']['UserName'] if u'UserName' in msg['User'] else msg['User'][
@@ -162,6 +168,68 @@ def deal_group_msg(msg):
 
     return rec_group_dict
 
+#处理自己发的群消息
+def deal_myself_msg(msg):
+    global face_bug
+    msg_id = msg['MsgId']  # 消息 id
+    msg_from_user = msg['FromUserName']  # 来源用户 i
+    msg_from_user_name = '心安'  # 昵称是自己
+
+    msg_group = msg['ToUserName']  #接收方群聊 id
+    try:
+        msg_group_name = itchat.search_chatrooms(userName=msg_group)['NickName']  # 群聊名称
+    except:
+        msg_group_name = '跑步打卡'
+
+    msg_content = ''
+    msg_time_rec = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    msg_type = msg['Type']  # 消息类型
+
+    msg_share_url = None
+
+    if msg['Type'] == 'Text':
+        msg_content = msg['Content']
+    elif msg['Type'] == 'Picture' \
+            or msg['Type'] == 'Recording' \
+            or msg['Type'] == 'Video' \
+            or msg['Type'] == 'Attachment':
+        try:
+            user_nickname = msg['ActualNickName'][:2]  # 如果是群消息会从这里获取昵称
+        except:
+            user_nickname = msg_from_user_name  # 如果是单人消息从这里获取昵称
+        timnum = time.strftime("%Y%m%d%H%M%S", time.localtime())
+        msg_content = user_nickname + '_' + timnum + user_nickname + msg['FileName']
+        # print('图片 content', msg_content)
+        # msg['Text'](rec_tmp_dir + msg['FileName'])
+        msg['Text'](rec_tmp_dir + msg_content)  # 保存文件到相应文件夹
+    elif msg['Type'] == 'Sharing':
+        msg_content = msg['Text']
+        msg_share_url = msg['Url']
+
+    rec_msg_dict.update({
+        'msg_id': msg_id,
+        'msg_from_user': msg_from_user,  # 发消息的用户 id
+        'msg_time_rec': msg_time_rec,
+        'msg_type': msg_type,
+        'msg_content': msg_content,
+        'msg_from_user_name': msg_from_user_name,  # 发消息用户
+        'msg_group': msg_group,  # 群聊 id
+        'msg_group_name': msg_group_name,  # 群聊名称
+    })
+    face_bug = msg_content  # 针对表情包内容
+    msg_information.update(
+        {
+            msg_id: {
+                "msg_from": msg_from_user_name, "msg_time": msg_time_rec, "msg_time_rec": msg_time_rec,
+                "msg_type": msg['Type'],
+                "msg_content": msg_content, "msg_share_url": msg_share_url
+            }
+        })
+
+    return rec_msg_dict
+
+
+
 #好友消息
 @itchat.msg_register([TEXT, PICTURE, RECORDING,SHARING, ATTACHMENT, VIDEO], isFriendChat=True , isGroupChat=False)
 def send_msg_test(msg):
@@ -171,6 +239,7 @@ def send_msg_test(msg):
 
     elif msg_dict['msg_content'] == '@@打卡统计':
         res = getresult()
+        itchat.send_msg(res, toUserName=msg_dict['msg_from_user'])
         group_ids = get_real_chat_room(groupnames)
         for group_id in group_ids:
             itchat.send_msg(res, toUserName=group_id)
@@ -183,7 +252,7 @@ def send_msg_test(msg):
 
     else:
         r = wxrobot(msg_dict['msg_id'],msg_dict['msg_type'], msg_dict['msg_time_rec'], msg_dict['msg_content'], msg_dict['msg_from_user'], msg['ToUserName'], msg_dict['msg_from_user_name'],
-                    itchat.search_friends(userName=msg['ToUserName'])['NickName'], 0, 0, '', '')
+                    itchat.search_friends(userName=msg['ToUserName'])['NickName'], 0, 0, ' ', ' ')
         r.insert_db()     #好友消息直接插入数据库
         print('插入数据库成功')
 
@@ -202,36 +271,72 @@ def get_real_chat_room(groupnames):
 #群消息
 @itchat.msg_register([TEXT, PICTURE, RECORDING, ATTACHMENT, VIDEO], isGroupChat=True)
 def reply_msg(msg):
-    deal_rep = deal_group_msg(msg)
+    #假如是自己发的消息：
+    if msg['FromUserName'] == loadUser['UserName']:  # 是登录用户自己发的消息
+        deal_rep = deal_myself_msg(msg)
 
-    deal_rep['msg_user_nickname'] = msg['ActualNickName']  # 用户备注昵称
-    group_id = get_real_chat_room(groupnames)  # [...,...]
+        deal_rep['msg_user_nickname'] = '心安'  # 用户备注昵称
+        group_id = get_real_chat_room(groupnames)  # [...,...]
+       
+        if deal_rep['msg_group'] in group_id:
 
-    if deal_rep['msg_group'] in group_id:
+            # itchat.search_friends()['NickName']   是扫码登录用户
+            # msg['ActualNickName']     发送消息用户
 
-        # itchat.search_friends()['NickName']   是扫码登录用户
-        # msg['ActualNickName']     发送消息用户
+            r = wxrobot(deal_rep['msg_id'], deal_rep['msg_type'], deal_rep['msg_time_rec'], deal_rep['msg_content'],
+                        deal_rep['msg_from_user'], '接收者 id',
+                        deal_rep['msg_from_user_name'], '接收者姓名', 0, 1,
+                        deal_rep['msg_group'],
+                        deal_rep['msg_group_name'])
+            r.insert_db()  # 监控的群内，存储所有群消息，包括文件
 
-        r = wxrobot(deal_rep['msg_id'],deal_rep['msg_type'], deal_rep['msg_time_rec'], deal_rep['msg_content'], deal_rep['msg_from_user'], itchat.search_friends()['UserName'],
-                    msg['ActualNickName'], itchat.search_friends()['NickName'], msg['isAt'], 1, deal_rep['msg_group'],
-                    deal_rep['msg_group_name'])
-        r.insert_db()  # 监控的群内，存储所有群消息，包括文件
-
-        if deal_rep['msg_type'] == 'Text':
-            characterlist_head = str(deal_rep['msg_content'])[:2]
-            if characterlist_head == '打卡':
-                stat = Statistical(deal_rep)  # 开始执行打卡信息保存与统计，只保存文本信息
-                res = stat.saveuseinfo()
-                if res == True:
-                    itchat.send_msg('加油，打卡已记录![呲牙]',
-                                    toUserName=deal_rep['msg_group'])
+            if deal_rep['msg_type'] == 'Text':
+                characterlist_head = str(deal_rep['msg_content'])[:2]
+                if characterlist_head == '打卡':
+                    stat = Statistical(deal_rep)  # 开始执行打卡信息保存与统计，只保存文本信息
+                    res = stat.saveuseinfo()
+                    if res == True:
+                        itchat.send_msg('加油，打卡已记录![呲牙]',
+                                        toUserName=deal_rep['msg_group'])
+                    else:
+                        time.sleep(1)
+                        itchat.send_msg('今日已经打过卡了[抠鼻]', toUserName=deal_rep['msg_group'])
                 else:
-                    time.sleep(1)
-                    itchat.send_msg('今日已经打过卡了[抠鼻]', toUserName=deal_rep['msg_group'])
-            else:
-                print('聊天消息')
+                    print('聊天消息')
+        else:
+            print('其他群聊消息，不存数据库')
+
     else:
-        print('其他群聊消息，不存数据库')
+        deal_rep = deal_group_msg(msg)
+
+        deal_rep['msg_user_nickname'] = msg['ActualNickName']  # 用户备注昵称
+        group_id = get_real_chat_room(groupnames)  # [...,...]
+
+        if deal_rep['msg_group'] in group_id:
+
+            # itchat.search_friends()['NickName']   是扫码登录用户
+            # msg['ActualNickName']     发送消息用户
+
+            r = wxrobot(deal_rep['msg_id'],deal_rep['msg_type'], deal_rep['msg_time_rec'], deal_rep['msg_content'], deal_rep['msg_from_user'], itchat.search_friends()['UserName'],
+                        msg['ActualNickName'], itchat.search_friends()['NickName'], msg['isAt'], 1, deal_rep['msg_group'],
+                        deal_rep['msg_group_name'])
+            r.insert_db()  # 监控的群内，存储所有群消息，包括文件
+
+            if deal_rep['msg_type'] == 'Text':
+                characterlist_head = str(deal_rep['msg_content'])[:2]
+                if characterlist_head == '打卡':
+                    stat = Statistical(deal_rep)  # 开始执行打卡信息保存与统计，只保存文本信息
+                    res = stat.saveuseinfo()
+                    if res == True:
+                        itchat.send_msg('加油，打卡已记录![呲牙]',
+                                        toUserName=deal_rep['msg_group'])
+                    else:
+                        time.sleep(1)
+                        itchat.send_msg('今日已经打过卡了[抠鼻]', toUserName=deal_rep['msg_group'])
+                else:
+                    print('聊天消息')
+        else:
+            print('其他群聊消息，不存数据库')
 
 
 

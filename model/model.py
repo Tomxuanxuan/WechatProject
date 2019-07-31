@@ -42,11 +42,12 @@ class wxrobot:
         self.is_group = is_group
         self.msg_group = group
         self.msg_group_name = group_name
-        self.mycursor = mydb.cursor()
 
     def insert_db(self):
         sql = "INSERT INTO wxrobot (msg_id,msg_type,msg_time,msg_content,msg_sender,msg_receiver,msg_sender_name,msg_receiver_name,is_at,is_group,msg_group,msg_group_name) VALUES (%s, %s, %s,%s, %s,%s, %s,%s, %s, %s,%s, %s)"
         val = (self.msg_id,self.msg_type, self.msg_time,self.msg_content,self.msg_sender,self.msg_receiver,self.msg_sender_name,self.msg_receiver_name,self.is_at,self.is_group,self.msg_group,self.msg_group_name)
+        mydb.ping(reconnect=True)
+        self.mycursor = mydb.cursor()
         try:
             self.mycursor.execute(sql, val)
             mydb.commit()
@@ -98,6 +99,7 @@ class Statistical(object):
         #is_save 字段保存为打卡
         sql = 'insert into statisticstask (msg_id, msg_time,msg_sender,msg_sender_name,msg_content,msg_group_name,is_save) value (%s,%s,%s,%s,%s,%s, TRUE)'
         val = (self.msg_id, self.msg_time, self.msg_from_user, self.msg_user_nickname, self.content,self.msg_group_name)
+        self.mydb.ping(reconnect=True)
         cursor = self.mydb.cursor()
         try:
             cursor.execute(sql,val)
@@ -119,6 +121,7 @@ class Statistical(object):
 def getresult():
     #获取本月的打卡数据
     sql = "select msg_sender_name,count(is_save) from statisticstask where DATE_FORMAT(msg_time,'%Y%m') = DATE_FORMAT(CURDATE(), '%Y%m') group by msg_sender_name"
+    mydb.ping(reconnect=True)
     cursor = mydb.cursor()
     try:
         cursor.execute(sql)
